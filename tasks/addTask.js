@@ -18,14 +18,8 @@ exports.handler = async (event, context) => {
 
   return await new Promise((resolve, reject) => {
     docClient.put(params, (error, data) => {
-      if (error) {
-        resolve({
-          statusCode: 400,
-          error: error,
-        });
-      } else {
-        resolve({ statusCode: 200, body: JSON.stringify(params.Item) });
-      }
+      if (error) resolve({ statusCode: 400, error: error });
+      resolve({ statusCode: 200, body: JSON.stringify(params.Item) });
     });
   });
 };
