@@ -30,7 +30,9 @@ In the `EduMonitor_Tasks` function go to **Configuration**, then select **Permis
 
 Under **Execution Role** select the role which will bring you to a new window.
 
-Click **Add Inline Policy**. Copy the following JSON:
+Click **Add Inline Policy**. Copy the following JSON :
+
+**NOTE: replace the table ARN with the table you have created**
 
 ```json
 {
@@ -46,7 +48,7 @@ Click **Add Inline Policy**. Copy the following JSON:
         "dynamodb:Query",
         "dynamodb:UpdateItem"
       ],
-      "Resource": "arn:aws:dynamodb:us-east-1:284420872257:table/Tasks"
+      "Resource": "YOUR-TABLE-ARN"
     }
   ]
 }
