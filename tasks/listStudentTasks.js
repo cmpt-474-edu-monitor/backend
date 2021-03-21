@@ -5,7 +5,7 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 exports.handler = async (event, context) => {
   const params = {
     TableName: "Tasks",
-    ProjectionExpression: "student, id, title, deadline, done", // specifies the attributes you want in the results
+    ProjectionExpression: "student, id, title, deadline, done, classroom", // specifies the attributes you want in the results
     FilterExpression: "student = :studentId", // returns only items that satisfy this condition
     ExpressionAttributeValues: {
       ":studentId": parseInt(event.studentId),
@@ -16,7 +16,7 @@ exports.handler = async (event, context) => {
   return await new Promise((resolve, reject) => {
     docClient.scan(params, (error, data) => {
       if (error) resolve({ statusCode: 400, error: error });
-      resolve({ statusCode: 200, body: JSON.stringify(data) });
+      resolve({ statusCode: 200, body: JSON.stringify(data.Items) });
     });
   });
 };
