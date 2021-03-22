@@ -8,13 +8,13 @@ function addTask(ctx, classroom, title, deadline, student, done, addedBy) {
   const params = {
     TableName: 'Tasks',
     Item: {
-      id: uuid(),
-      classroom: classroom,
-      title: title,
-      deadline: deadline,
-      student: student,
-      done: done,
-      addedBy: addedBy,
+      'id': uuid(),
+      'classroom': classroom,
+      'title': title,
+      'deadline': deadline,
+      'student': student,
+      'done': done,
+      'addedBy': addedBy,
     },
   };
 
@@ -30,7 +30,7 @@ function deleteTask(ctx, taskId) {
   const params = {
     TableName: 'Tasks',
     Key: {
-      id: taskId,
+      'id': taskId,
     },
   };
 
@@ -45,8 +45,11 @@ function deleteTask(ctx, taskId) {
 function listTasks(ctx, studentId, classroomId) {
   const params = {
     TableName: 'Tasks',
-    ProjectionExpression: 'student, id, title, deadline, done, classroom',
+    ProjectionExpression: 'student, id, title, deadline, done, classroom, addedBy',
     FilterExpression: 'student = :studentId',
+    ExpressionAttributesNames: {
+      '#student': 'student',
+    },
     ExpressionAttributeValues: {
       ':studentId': studentId,
     },
@@ -65,8 +68,31 @@ function listTasks(ctx, studentId, classroomId) {
   });
 }
 
+function updateTask(ctx, id, classroom, title, deadline, student, done, addedBy) {
+    const params = {
+    TableName: 'Tasks',
+    Item: {
+      'id': id,
+      'classroom': classroom,
+      'title': title,
+      'deadline': deadline,
+      'student': student,
+      'done': done,
+      'addedBy': addedBy,
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    docClient.put(params, (error, data) => {
+      if (error) reject(error);
+      resolve(JSON.stringify(params.Item));
+    });
+  });
+}
+
 exports.handler = new ServiceBuilder()
   .addInterface('addTask', addTask)
   .addInterface('deleteTask', deleteTask)
   .addInterface('listTasks', listTasks)
+  .addInterface('updateTask', updateTask)
   .build();
