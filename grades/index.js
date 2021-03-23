@@ -7,7 +7,7 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 function showGrades(ctx, classroomId, studentId) {
     const params = {
         TableName: 'Grades',
-        ProjectionExpression: 'student, id, course, grades, overall',
+        ProjectionExpression: 'studentId, classroomId, grades',
         FilterExpression: 'student = :studentId and classroom = :classroomId',
         ExpressionAttributeValues: {
             ':studentId': studentId,
@@ -18,7 +18,7 @@ function showGrades(ctx, classroomId, studentId) {
     return new Promise((resolve, reject) => {
         docClient.get(params, (error, data) => {
             if (error) reject(error);
-            resolve(JSON.stringify(data.items));
+            resolve(JSON.stringify(data.Items));
         });
     });
 }
