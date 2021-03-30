@@ -70,6 +70,9 @@ class UserService {
     validate({ id, email }, false)
 
     const fields = ['id', 'email', 'firstName', 'lastName', 'role']
+    if (context.includeDependents) {
+      fields.push('dependents')
+    }
     if (context.includePasswordHash) {
       fields.push('passwordHash')
     }
@@ -100,6 +103,10 @@ class UserService {
       firstName,
       lastName,
       role
+    }
+
+    if (role === 'GUARDIAN') {
+      user.dependents = []
     }
 
     await promisify(db.put).bind(db)({
@@ -144,6 +151,12 @@ class UserService {
     user.lastName = lastName || user.lastName
     user.role = role || user.role
 
+    if (user.role === 'GUARDIAN') {
+      user.dependents = user.dependents || []
+    } else {
+      user.dependents = undefined
+    }
+
     await promisify(db.put).bind(db)({
       TableName,
       Item: user
@@ -173,6 +186,102 @@ class UserService {
     context.session.user = user
     return user
   }
+
+  async addGuardian (context, email) {
+    if (!context.session.user) {
+      throw new Error('You are not logged in')
+    }
+
+    if (context.session.user.role !== 'STUDENT') {
+      throw new Error('Only students can add guardians')
+    }
+
+    const guardian = await this.lookup({ ...context, includeDependents: true }, { email })
+    if (!guardian) {
+      throw new Error('User not found')
+    }
+
+    if (guardian.role !== 'GUARDIAN') {
+      throw new Error('Adding user is not a guardian role')
+    }
+
+    if (guardian.dependents.indexOf(context.session.user.id) === -1) {
+      guardian.dependents.push(context.session.user.id)
+    }
+
+    await promisify(db.put).bind(db)({
+      TableName,
+      Item: guardian
+    })
+
+    guardian.dependents = undefined // dependents is considered sensitive info
+    return guardian
+  }
+
+  async removeGuardian (context, email) {
+    if (!context.session.user) {
+      throw new Error('You are not logged in')
+    }
+
+    if (context.session.user.role !== 'STUDENT') {
+      throw new Error('Only students can remove guardians')
+    }
+
+    const guardian = await this.lookup({ ...context, includeDependents: true }, { email })
+    if (!guardian) {
+      throw new Error('User not found')
+    }
+
+    if (guardian.role !== 'GUARDIAN') {
+      throw new Error('Removing user is not a guardian role')
+    }
+
+    guardian.dependents.splice(guardian.dependents.indexOf(context.session.user.id), 1)
+
+    await promisify(db.put).bind(db)({
+      TableName,
+      Item: guardian
+    })
+
+    guardian.dependents = undefined // dependents is considered sensitive info
+    return guardian
+  }
+
+  async listGuardians (context) {
+    if (!context.session.user) {
+      throw new Error('You are not logged in')
+    }
+
+    if (context.session.user.role !== 'STUDENT') {
+      throw new Error('Only students can list guardians')
+    }
+
+    const fields = ['id', 'email', 'firstName', 'lastName', 'role']
+    const data = await promisify(db.scan).bind(db)({
+      TableName,
+      ProjectionExpression: fields.map(field => '#' + field).join(', '),
+      FilterExpression: 'contains (dependents, :dependentId)',
+      ExpressionAttributeValues: {
+        ':dependentId': context.session.user.id,
+      },
+      ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
+    })
+
+    return data.Items
+  }
+
+  async listDependents (context) {
+    if (!context.session.user) {
+      throw new Error('You are not logged in')
+    }
+
+    if (context.session.user.role !== 'GUARDIAN') {
+      throw new Error('Only guardians can list dependents')
+    }
+
+    const me = await this.me({ ...context, includeDependents: true })
+    return await Promise.all(me.dependents.map(id => this.lookup(context, { id })))
+  }
 }
 
 const users = new UserService()
@@ -184,6 +293,10 @@ exports.handler = new ServiceBuilder()
   .addInterface('logout', users.logout, users)
   .addInterface('updateProfile', users.updateProfile, users)
   .addInterface('updatePassword', users.updatePassword, users)
+  .addInterface('addGuardian', users.addGuardian, users)
+  .addInterface('removeGuardian', users.removeGuardian, users)
+  .addInterface('listGuardians', users.listGuardians, users)
+  .addInterface('listDependents', users.listGuardians, users)
   .build()
 
 function userListClassrooms (ctx, studentId) {
