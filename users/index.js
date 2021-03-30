@@ -10,6 +10,12 @@ const { ServiceBuilder } = require('edu-monitor-sdk')
 const LAMBDA_PREFIX = process.env['LAMBDA_PREFIX'] || 'EduMonitor_'
 const SALT_ROUNDS = 10
 
+const ROLES = {
+  STUDENT: 'STUDENT',
+  EDUCATOR: 'EDUCATOR',
+  GUARDIAN: 'GUARDIAN'
+}
+
 const RULES = {
   id: {
     type: 'string',
@@ -26,7 +32,7 @@ const RULES = {
   },
   role: {
     type: 'enum',
-    values: ['STUDENT', 'EDUCATOR', 'GUARDIAN']
+    values: [ROLES.STUDENT, ROLES.EDUCATOR, ROLES.GUARDIAN]
   },
   password: {
     type: 'password'
@@ -105,7 +111,7 @@ class UserService {
       role
     }
 
-    if (role === 'GUARDIAN') {
+    if (role === ROLES.GUARDIAN) {
       user.dependents = []
     }
 
@@ -143,7 +149,7 @@ class UserService {
   }
 
   async updateProfile (context, { email, firstName, lastName, role }) {
-    const user = await this.me({ ...context, includePasswordHash: true })
+    const user = await this.me({ ...context, includePasswordHash: true, includeDependents: true })
 
     validate({ email, firstName, lastName, role }, false)
     user.email = email || user.email
@@ -151,7 +157,7 @@ class UserService {
     user.lastName = lastName || user.lastName
     user.role = role || user.role
 
-    if (user.role === 'GUARDIAN') {
+    if (user.role === ROLES.GUARDIAN) {
       user.dependents = user.dependents || []
     } else {
       user.dependents = undefined
@@ -163,12 +169,13 @@ class UserService {
     })
 
     user.passwordHash = undefined
+    user.dependents = undefined
     context.session.user = user
     return user
   }
 
   async updatePassword (context, newPassword, oldPassword) {
-    const user = await this.me({ ...context, includePasswordHash: true })
+    const user = await this.me({ ...context, includePasswordHash: true, includeDependents: true })
     validate({ password: newPassword })
 
     if (!await bcrypt.compare(oldPassword, user.passwordHash)) {
@@ -183,6 +190,7 @@ class UserService {
     })
 
     user.passwordHash = undefined
+    user.includeDependents = undefined
     context.session.user = user
     return user
   }
@@ -192,16 +200,16 @@ class UserService {
       throw new Error('You are not logged in')
     }
 
-    if (context.session.user.role !== 'STUDENT') {
+    if (context.session.user.role !== ROLES.STUDENT) {
       throw new Error('Only students can add guardians')
     }
 
-    const guardian = await this.lookup({ ...context, includeDependents: true }, { email })
+    const guardian = await this.lookup({ ...context, includeDependents: true, includePasswordHash: true }, { email })
     if (!guardian) {
       throw new Error('User not found')
     }
 
-    if (guardian.role !== 'GUARDIAN') {
+    if (guardian.role !== ROLES.GUARDIAN) {
       throw new Error('Adding user is not a guardian role')
     }
 
@@ -223,16 +231,16 @@ class UserService {
       throw new Error('You are not logged in')
     }
 
-    if (context.session.user.role !== 'STUDENT') {
+    if (context.session.user.role !== ROLES.STUDENT) {
       throw new Error('Only students can remove guardians')
     }
 
-    const guardian = await this.lookup({ ...context, includeDependents: true }, { email })
+    const guardian = await this.lookup({ ...context, includeDependents: true, includePasswordHash: true }, { email })
     if (!guardian) {
       throw new Error('User not found')
     }
 
-    if (guardian.role !== 'GUARDIAN') {
+    if (guardian.role !== ROLES.GUARDIAN) {
       throw new Error('Removing user is not a guardian role')
     }
 
@@ -252,7 +260,7 @@ class UserService {
       throw new Error('You are not logged in')
     }
 
-    if (context.session.user.role !== 'STUDENT') {
+    if (context.session.user.role !== ROLES.STUDENT) {
       throw new Error('Only students can list guardians')
     }
 
@@ -275,7 +283,7 @@ class UserService {
       throw new Error('You are not logged in')
     }
 
-    if (context.session.user.role !== 'GUARDIAN') {
+    if (context.session.user.role !== ROLES.GUARDIAN) {
       throw new Error('Only guardians can list dependents')
     }
 
