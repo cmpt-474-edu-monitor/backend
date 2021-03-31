@@ -264,7 +264,8 @@ class UserService {
       throw new Error('Only students can list guardians')
     }
 
-    const fields = ['id', 'email', 'firstName', 'lastName', 'role']
+    // const fields = ['id', 'email', 'firstName', 'lastName', 'role']
+    const fields = ['id', 'role']
     const data = await promisify(db.scan).bind(db)({
       TableName,
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
@@ -275,20 +276,25 @@ class UserService {
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
 
-    return data.Items
+    // return data.Items.filter(user => user.role === ROLES.GUARDIAN)
+    return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
   }
 
-  async listDependents (context) {
-    if (!context.session.user) {
-      throw new Error('You are not logged in')
+  async listDependents (context, guardianId) {
+    if (!context.caller.isSystem) {
+      if (!context.session.user) {
+        throw new Error('You are not logged in')
+      }
+
+      if (context.session.user.role !== ROLES.GUARDIAN) {
+        throw new Error('Only guardians can list dependents')
+      }
     }
 
-    if (context.session.user.role !== ROLES.GUARDIAN) {
-      throw new Error('Only guardians can list dependents')
-    }
+    const guardian = await this.lookup({ ...context, includeDependents: true }, { id: guardianId})
 
-    const me = await this.me({ ...context, includeDependents: true })
-    return await Promise.all(me.dependents.map(id => this.lookup(context, { id })))
+    // return (await Promise.all(me.dependents.map(id => this.lookup(context, { id })))).filter(user => user.role === ROLES.STUDENT)
+    return guardian.dependents
   }
 }
 
