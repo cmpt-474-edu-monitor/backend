@@ -152,6 +152,13 @@ class ClassroomService {
     return data.Items
   }
 
+  /**
+   *
+   * @param context
+   * @param studentId <undefined|string> logged in guardians can use this optional parameter to query classroom enroll by
+   *                                   a dependent
+   * @returns {Promise<string[]>}
+   */
   async listEnrolledClassrooms (context, studentId) {
     if (!context.session.user) {
       throw new Error('You are not logged in')

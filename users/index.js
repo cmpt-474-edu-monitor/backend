@@ -280,8 +280,14 @@ class UserService {
     return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
   }
 
+  /**
+   *
+   * @param context
+   * @param guardianId {string} only used by another service (eg. Classroom)
+   * @returns {Promise<string[]>}
+   */
   async listDependents (context, guardianId) {
-    if (!context.caller.isSystem) {
+    if (context.caller.isUser) {
       if (!context.session.user) {
         throw new Error('You are not logged in')
       }
@@ -289,6 +295,8 @@ class UserService {
       if (context.session.user.role !== ROLES.GUARDIAN) {
         throw new Error('Only guardians can list dependents')
       }
+
+      guardianId = context.session.user.id
     }
 
     const guardian = await this.lookup({ ...context, includeDependents: true }, { id: guardianId})
@@ -312,22 +320,3 @@ exports.handler = new ServiceBuilder()
   .addInterface('listGuardians', users.listGuardians, users)
   .addInterface('listDependents', users.listGuardians, users)
   .build()
-
-function userListClassrooms (ctx, studentId) {
-  const params = {
-    TableName: 'Classroom',
-    ProjectionExpression: 'course', // specifies the attributes you want in the results
-    FilterExpression: 'contains (students, :studentId)', // returns only items that satisfy this condition
-    ExpressionAttributeValues: {
-      ':studentId': studentId
-    }
-  }
-
-  // scan = reads every item in the table, maybe consider using a secondary index for query instead
-  return new Promise((resolve, reject) => {
-    docClient.scan(params, (error, data) => {
-      if (error) resolve({ statusCode: 400, error: error })
-      resolve({ statusCode: 200, body: JSON.stringify(data.Items) })
-    })
-  })
-}
