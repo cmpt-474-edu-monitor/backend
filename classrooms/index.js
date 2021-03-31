@@ -87,6 +87,17 @@ class ClassroomService {
     return data.Items[0] || null // the classroom, or null
   }
 
+  async list (context) {
+    const fields = ['id', 'title', 'instructor', 'students']
+    const data = await promisify(db.scan).bind(db)({
+      TableName,
+      ProjectionExpression: fields.map(field => '#' + field).join(', '),
+      ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
+    })
+
+    return data.Items
+  }
+
   async enroll (context, id, email) {
     if (!context.session.user) {
       throw new Error('You are not logged in')
@@ -108,6 +119,11 @@ class ClassroomService {
       if (!user) {
         throw new Error('User not found')
       }
+
+      if (user.role !== ROLES.STUDENT) {
+        throw new Error('Enrolling user is not a student')
+      }
+
       userId = user.id
 
     } else if (context.session.user.role === ROLES.STUDENT) {
@@ -117,8 +133,55 @@ class ClassroomService {
       throw new Error('Only an instructor or student can enroll')
     }
 
-    if (classroom.students.indexOf(userId) !== -1) {
+    if (classroom.students.indexOf(userId) === -1) {
       classroom.students.push(userId)
+    }
+
+    await promisify(db.put).bind(db)({
+      TableName,
+      Item: classroom
+    })
+
+    return classroom
+  }
+
+  async withdraw (context, id, email) {
+    if (!context.session.user) {
+      throw new Error('You are not logged in')
+    }
+
+    const classroom = await this.lookup(context, id)
+    if (!classroom) {
+      throw new Error('Classroom not found')
+    }
+
+    let userId
+    if (context.session.user.role === ROLES.EDUCATOR) {
+      // instructor of the course can withdraw anyone
+      if (classroom.instructor !== context.session.user.id) {
+        throw new Error('Only the instructor of the class can withdraw other people')
+      }
+
+      const user = await client.Users.lookup({ email })
+      if (!user) {
+        throw new Error('User not found')
+      }
+
+      if (user.role !== ROLES.STUDENT) {
+        throw new Error('Withdrawing user is not a student')
+      }
+
+      userId = user.id
+
+    } else if (context.session.user.role === ROLES.STUDENT) {
+      // student can only withdraw him/herself
+      userId = context.session.user.id
+    } else {
+      throw new Error('Only an instructor or student can withdraw')
+    }
+
+    if (classroom.students.indexOf(userId) !== -1) {
+      classroom.students.splice(classroom.students.indexOf(userId), 1)
     }
 
     await promisify(db.put).bind(db)({
@@ -196,6 +259,7 @@ const classrooms = new ClassroomService()
 exports.handler = new ServiceBuilder()
   .addInterface('create', classrooms.create, classrooms)
   .addInterface('lookup', classrooms.lookup, classrooms)
+  .addInterface('list', classrooms.list, classrooms)
   .addInterface('enroll', classrooms.enroll, classrooms)
   .addInterface('listInstructingClassrooms', classrooms.listInstructingClassrooms, classrooms)
   .addInterface('listEnrolledClassrooms', classrooms.listEnrolledClassrooms, classrooms)

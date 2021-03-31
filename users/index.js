@@ -244,7 +244,9 @@ class UserService {
       throw new Error('Removing user is not a guardian role')
     }
 
-    guardian.dependents.splice(guardian.dependents.indexOf(context.session.user.id), 1)
+    if (guardian.dependents.indexOf(context.session.user.id) !== -1) {
+      guardian.dependents.splice(guardian.dependents.indexOf(context.session.user.id), 1)
+    }
 
     await promisify(db.put).bind(db)({
       TableName,
