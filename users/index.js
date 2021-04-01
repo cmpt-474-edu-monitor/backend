@@ -19,7 +19,7 @@ const ROLES = {
 const RULES = {
   id: {
     type: 'string',
-    format: /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
+    format: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
   },
   email: {
     type: 'email'
