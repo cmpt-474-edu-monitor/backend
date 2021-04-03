@@ -257,13 +257,17 @@ class UserService {
     return guardian
   }
 
-  async listGuardians (context) {
-    if (!context.session.user) {
-      throw new Error('You are not logged in')
-    }
+  async listGuardians (context, studentId) {
+    if (context.caller.isUser) {
+      if (!context.session.user) {
+        throw new Error('You are not logged in')
+      }
 
-    if (context.session.user.role !== ROLES.STUDENT) {
-      throw new Error('Only students can list guardians')
+      if (context.session.user.role !== ROLES.STUDENT) {
+        throw new Error('Only students can list guardians')
+      }
+
+      studentId = context.session.user.id
     }
 
     // const fields = ['id', 'email', 'firstName', 'lastName', 'role']
@@ -273,7 +277,7 @@ class UserService {
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
       FilterExpression: 'contains (dependents, :dependentId)',
       ExpressionAttributeValues: {
-        ':dependentId': context.session.user.id,
+        ':dependentId': studentId,
       },
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
