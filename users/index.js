@@ -2,7 +2,7 @@ const { promisify } = require('util')
 
 const AWS = require('aws-sdk')
 const { v4: uuid } = require('uuid')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 const Parameter = require('parameter')
 
 const { ServiceBuilder } = require('edu-monitor-sdk')
@@ -282,8 +282,8 @@ class UserService {
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
 
-    // return data.Items.filter(user => user.role === ROLES.GUARDIAN)
-    return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
+    return data.Items.filter((user) => user.role === ROLES.GUARDIAN)
+    // return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
   }
 
   /**
@@ -292,7 +292,7 @@ class UserService {
    * @param guardianId {string} only used by another service (eg. Classroom)
    * @returns {Promise<string[]>}
    */
-  async listDependents (context, guardianId) {
+  async listDependents(context, guardianId) {
     if (context.caller.isUser) {
       if (!context.session.user) {
         throw new Error('You are not logged in')
@@ -324,5 +324,5 @@ exports.handler = new ServiceBuilder()
   .addInterface('addGuardian', users.addGuardian, users)
   .addInterface('removeGuardian', users.removeGuardian, users)
   .addInterface('listGuardians', users.listGuardians, users)
-  .addInterface('listDependents', users.listGuardians, users)
+  .addInterface('listDependents', users.listDependents, users)
   .build()

@@ -108,7 +108,7 @@ class GradeService {
     return component
   }
 
-  async updateGradingComponent (context, componentId, { title, total, weight }) {
+  async updateGradingComponent (context, id, { title, total, weight }) {
     if (!context.session.user) {
       throw new Error('You are not logged in')
     }
@@ -117,22 +117,22 @@ class GradeService {
       throw new Error('Only educators can add grading components')
     }
 
-    validate({ id: componentId })
+    validate({ id })
     validate({ title, total, weight }, false)
 
-    const component = await this.lookupGradingComponent(context, componentId)
+    const component = await this.lookupGradingComponent(context, id)
     if (!component) {
       throw new Error('Grading component not found')
     }
 
-    const classroom = await client.Classrooms.lookup(componentId.classroom)
+    const classroom = await client.Classrooms.lookup(component.classroom)
     if (classroom.instructor !== context.session.user.id) {
       throw new Error('Only the instructor of the class can update grading components')
     }
 
     component.title = title || component.title
-    component.total = title || component.total
-    component.weight = title || component.weight
+    component.total = total || component.total
+    component.weight = weight || component.weight
 
     await promisify(db.put).bind(db)({
       TableName,
@@ -142,7 +142,7 @@ class GradeService {
     return component
   }
 
-  async removeGradingComponent (context, componentId) {
+  async removeGradingComponent (context, id) {
     if (!context.session.user) {
       throw new Error('You are not logged in')
     }
@@ -151,14 +151,14 @@ class GradeService {
       throw new Error('Only educators can add grading components')
     }
 
-    validate({ id: componentId })
+    validate({ id })
 
-    const component = await this.lookupGradingComponent(context, componentId)
+    const component = await this.lookupGradingComponent(context, id)
     if (!component) {
       throw new Error('Grading component not found')
     }
 
-    const classroom = await client.Classrooms.lookup(componentId.classroom)
+    const classroom = await client.Classrooms.lookup(component.classroom)
     if (classroom.instructor !== context.session.user.id) {
       throw new Error('Only the instructor of the class can remove grading components')
     }
@@ -166,7 +166,7 @@ class GradeService {
     await promisify(db.delete).bind(db)({
       TableName,
       Key: {
-        'id': componentId
+        id: id
       }
     })
 
@@ -174,11 +174,11 @@ class GradeService {
   }
 
   async listGradingComponents (context, classroomId) {
-    const fields = ['id', 'title', 'total', 'weight', 'classroom'] // grades not returned here
+    const fields = ['id', 'title', 'total', 'weight', 'classroom', 'grades']
     const data = await promisify(db.scan).bind(db)({
       TableName,
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
-      FilterExpression: '#id = :id',
+      FilterExpression: '#classroom = :classroom',
       ExpressionAttributeValues: {
         ':classroom': classroomId
       },
@@ -313,8 +313,6 @@ class GradeService {
       throw new Error('Student is not enrolled in this class')
     }
 
-    validate({ score, comments }, false)
-
     const i = component.grades.findIndex(grade => grade.student === studentId)
     if (i === -1) {
       throw new Error('Grade not yet posted')
@@ -348,28 +346,33 @@ class GradeService {
     }
 
     const fields = ['id', 'title', 'total', 'weight', 'classroom', 'grades']
-    const components = (await promisify(db.scan).bind(db)({
-      TableName,
-      ProjectionExpression: fields.map(field => '#' + field).join(', '),
-      FilterExpression: '#classroom = :classroom',
-      ExpressionAttributeValues: {
-        ':classroom': classroomId
-      },
-      ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
-    })).Items
+    const components = (
+      await promisify(db.scan).bind(db)({
+        TableName,
+        ProjectionExpression: fields.map((field) => '#' + field).join(', '),
+        FilterExpression: '#classroom = :classroom',
+        ExpressionAttributeValues: {
+          ':classroom': classroomId,
+        },
+        ExpressionAttributeNames: Object.assign(
+          {},
+          ...fields.map((field) => ({ ['#' + field]: field }))
+        ),
+      })
+    ).Items
 
-    return components.map(component => ({
+    return components.map((component) => ({
       id: component.id,
       title: component.title,
       total: component.total,
       weight: component.weight,
       classroom: component.classroom,
-      grade: components.grades.find(grade => grade.student === studentId)
+      grade: component.grades.find((grade) => grade.student === studentId),
     }))
   }
 }
 
-const grades = GradeService()
+const grades = new GradeService()
 exports.handler = new ServiceBuilder()
   .addInterface('addGradingComponent', grades.lookupGradingComponent, grades)
   .addInterface('addGradingComponent', grades.addGradingComponent, grades)
