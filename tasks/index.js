@@ -163,35 +163,53 @@ class TaskService {
     return null
   }
 
-  async list (context) {
+  async list (context, studentId) {
     if (!context.session.user) {
       throw new Error('You are not logged in')
     }
 
-    const classrooms = await client.Classrooms.listEnrolledClassrooms(context.session.user.id)
-    let FilterExpression = '#student = :student'
+    if (context.session.user.role === ROLES.STUDENT) {
+      studentId = context.session.user.id
+    }
+
+    let classrooms = await client.Classrooms.listEnrolledClassrooms(studentId)
+
+    if (context.session.user.role === ROLES.EDUCATOR) {
+      classrooms = await client.Classrooms.listInstructingClassrooms(context.session.user.id)
+      studentId = null
+    }
+
+    const filterExpressions = []
+    if (studentId) {
+      filterExpressions.push('#student = :student')
+    }
+
     if (classrooms.length !== 0) {
-      FilterExpression += ` OR #classroom IN (${classrooms.map((_, i) => ':classroom' + i).join(', ')})`
+      filterExpressions.push(`#classroom IN (${classrooms.map((_, i) => ':classroom' + i).join(', ')})`)
     }
 
     const fields = ['id', 'title', 'classroom', 'deadline', 'student', 'completedStudents']
     const data = await promisify(db.scan).bind(db)({
       TableName,
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
-      FilterExpression: FilterExpression,
-      ExpressionAttributeValues: Object.assign({
-        ':student': context.session.user.id
-      }, ...classrooms.map((classroom, i) => ({ [':classroom' + i]: classroom.id }))),
+      FilterExpression: filterExpressions.join(' OR '),
+      ExpressionAttributeValues: Object.assign({}, studentId ? {
+        ':student': studentId
+      } : {}, ...classrooms.map((classroom, i) => ({ [':classroom' + i]: classroom.id }))),
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
 
-    return data.Items.filter(task => task.student === null || task.student === context.session.user.id)
+    return data.Items.filter(task => task.student === null || task.student === studentId)
   }
 
   async updateCompleteness (context, id, completed) {
     const task = await this.lookup(context, id)
     if (!task) {
       throw new Error('Task not found')
+    }
+
+    if (context.session.user.role !== ROLES.STUDENT) {
+      throw new Error('Only students can update task progress')
     }
 
     if (completed) {

@@ -192,13 +192,17 @@ class ClassroomService {
     return classroom
   }
 
-  async listInstructingClassrooms (context) {
-    if (!context.session.user) {
-      throw new Error('You are not logged in')
-    }
+  async listInstructingClassrooms (context, instructorId) {
+    if (context.caller.isUser) {
+      if (!context.session.user) {
+        throw new Error('You are not logged in')
+      }
 
-    if (context.session.user.role !== ROLES.EDUCATOR) {
-      throw new Error('Only educators can list instructing classrooms')
+      if (context.session.user.role !== ROLES.EDUCATOR) {
+        throw new Error('Only educators can list instructing classrooms')
+      }
+
+      instructorId = context.session.user.id
     }
 
     const fields = ['id', 'title', 'instructor', 'students']
@@ -207,7 +211,7 @@ class ClassroomService {
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
       FilterExpression: '#instructor = :instructor',
       ExpressionAttributeValues: {
-        ':instructor': context.session.user.id,
+        ':instructor': instructorId,
       },
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
