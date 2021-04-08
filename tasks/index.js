@@ -177,6 +177,10 @@ class TaskService {
     if (context.session.user.role === ROLES.EDUCATOR) {
       classrooms = await client.Classrooms.listInstructingClassrooms(context.session.user.id)
       studentId = null
+
+      if (classrooms.length === 0) {
+        return []
+      }
     }
 
     const filterExpressions = []
