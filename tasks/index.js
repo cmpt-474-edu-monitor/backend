@@ -163,19 +163,25 @@ class TaskService {
     return null
   }
 
-  async list (context, classroom) {
+  async list (context) {
     if (!context.session.user) {
       throw new Error('You are not logged in')
+    }
+
+    const classrooms = await client.Classrooms.listEnrolledClassrooms(context.session.user.id)
+    let FilterExpression = '#student = :student'
+    if (classrooms.length !== 0) {
+      FilterExpression += ` OR #classroom IN (${classrooms.map((_, i) => ':classroom' + i).join(', ')})`
     }
 
     const fields = ['id', 'title', 'classroom', 'deadline', 'student', 'completedStudents']
     const data = await promisify(db.scan).bind(db)({
       TableName,
       ProjectionExpression: fields.map(field => '#' + field).join(', '),
-      FilterExpression: '#id = :id',
-      ExpressionAttributeValues: {
-        ':classroom': classroom
-      },
+      FilterExpression: FilterExpression,
+      ExpressionAttributeValues: Object.assign({
+        ':student': context.session.user.id
+      }, ...classrooms.map((classroom, i) => ({ [':classroom' + i]: classroom.id }))),
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
 

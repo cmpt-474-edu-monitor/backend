@@ -223,21 +223,23 @@ class ClassroomService {
    * @returns {Promise<string[]>}
    */
   async listEnrolledClassrooms (context, studentId) {
-    if (!context.session.user) {
-      throw new Error('You are not logged in')
-    }
-
-    if (context.session.user.role === ROLES.GUARDIAN) {
-      const dependents = await client.Users.listDependents(context.session.user.id)
-      validate({ id: studentId })
-
-      if (dependents.indexOf(studentId) === -1) {
-        throw new Error('You are not a guardian of this student')
+    if (context.caller.isUser) {
+      if (!context.session.user) {
+        throw new Error('You are not logged in')
       }
-    } else if (context.session.user.role === ROLES.STUDENT) {
-      studentId = context.session.user.id
-    } else {
-      throw new Error('Only students can list enrolled classrooms')
+
+      if (context.session.user.role === ROLES.GUARDIAN) {
+        const dependents = await client.Users.listDependents(context.session.user.id)
+        validate({ id: studentId })
+
+        if (dependents.indexOf(studentId) === -1) {
+          throw new Error('You are not a guardian of this student')
+        }
+      } else if (context.session.user.role === ROLES.STUDENT) {
+        studentId = context.session.user.id
+      } else {
+        throw new Error('Only students can list enrolled classrooms')
+      }
     }
 
     const fields = ['id', 'title', 'instructor', 'students']
