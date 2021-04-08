@@ -37,7 +37,7 @@ function validate (document, requiredAll = true) {
   }
 
   const validator = new Parameter()
-  validator.addRule('jsDate', (input) => isNaN(Date.parse(input)) ? 'should be a JavaScript date String' : undefined)
+  validator.addRule('jsDate', (rule, value) => isNaN(Date.parse(value)) ? 'should be a JavaScript date String' : undefined)
   const errors = validator.validate(rules, data)
   if (errors) {
     throw new Error(errors[0].field + ' ' + errors[0].message)
