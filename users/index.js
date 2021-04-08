@@ -282,8 +282,8 @@ class UserService {
       ExpressionAttributeNames: Object.assign({}, ...fields.map(field => ({ ['#' + field]: field })))
     })
 
-    return data.Items.filter((user) => user.role === ROLES.GUARDIAN)
-    // return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
+    // return data.Items.filter(user => user.role === ROLES.GUARDIAN)
+    return data.Items.filter(user => user.role === ROLES.GUARDIAN).map(user => user.id)
   }
 
   /**
