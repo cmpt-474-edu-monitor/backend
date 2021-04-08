@@ -110,7 +110,7 @@ class TaskService {
       throw new Error('Task not found')
     }
 
-    const theClassroom = await client.Classrooms.lookup(classroom)
+    const theClassroom = await client.Classrooms.lookup(task.classroom)
     if (!theClassroom) {
       throw new Error('Classroom not found')
     }
@@ -140,7 +140,7 @@ class TaskService {
       throw new Error('Task not found')
     }
 
-    const theClassroom = await client.Classrooms.lookup(classroom)
+    const theClassroom = await client.Classrooms.lookup(task.classroom)
     if (!theClassroom) {
       throw new Error('Classroom not found')
     }
@@ -204,7 +204,7 @@ class TaskService {
       }
     }
 
-    await promisify(db.delete).bind(db)({
+    await promisify(db.put).bind(db)({
       TableName,
       Key: {
         'id': id
