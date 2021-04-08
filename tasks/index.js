@@ -206,9 +206,7 @@ class TaskService {
 
     await promisify(db.put).bind(db)({
       TableName,
-      Key: {
-        'id': id
-      }
+      Item: task
     })
 
     return task
