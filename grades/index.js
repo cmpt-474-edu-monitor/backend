@@ -33,7 +33,10 @@ const RULES = {
   },
   comments: {
     type: 'string'
-  }
+  },
+  score: {
+    type: 'number'
+  },
 }
 
 const db = new AWS.DynamoDB.DocumentClient()
